@@ -11,4 +11,4 @@ dist/
 .DS_store
 *.tsbuildinfo
 .skybridge/
-.agents/
+.agents/.mcp_auth_token.txt

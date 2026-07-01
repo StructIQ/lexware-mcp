@@ -1,0 +1,38 @@
+# Fly.io deployment for the Lexware Office MCP (Skybridge Docker image).
+#
+# Deploy:
+#   fly auth login
+#   fly apps create structiq-lexware-mcp          # or `fly launch` and reuse this config
+#   fly secrets set LEXWARE_API_KEY=... MCP_AUTH_TOKEN=...
+#   fly deploy                                     # builds the Dockerfile on Fly's remote builder
+#
+# Single instance on purpose: the server's ~2 req/s rate limiter is per-process.
+app = "structiq-lexware-mcp"
+primary_region = "fra"            # Frankfurt (German accounting service)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  LEXWARE_ENABLE_DRAFTS = "true"
+  LEXWARE_ENABLE_FINALIZE = "false"   # legally-binding invoices OFF until you enable them
+  LEXWARE_READ_ONLY = "false"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"         # scale to zero when idle (cheapest)
+  auto_start_machines = true          # cold-start on the next request
+  min_machines_running = 0            # set to 1 to keep it warm (small always-on cost)
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+    method = "GET"
+    path = "/status"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
