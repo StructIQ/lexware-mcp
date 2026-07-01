@@ -15,6 +15,7 @@ primary_region = "fra"            # Frankfurt (German accounting service)
 
 [env]
   PORT = "8080"
+  LEXWARE_API_BASE_URL = "https://api.lexware.io"   # new endpoint (formerly api.lexoffice.io)
   LEXWARE_ENABLE_DRAFTS = "true"
   LEXWARE_ENABLE_FINALIZE = "false"   # legally-binding invoices OFF until you enable them
   LEXWARE_READ_ONLY = "false"
