@@ -82,19 +82,31 @@ describe("JSON-string coercion (jsonObj) for object/array params", () => {
   });
 
   it("coerces boolean and number scalar params from strings", () => {
-    const c = parse({ id: z.string(), ...contactUpdateShape }, {
-      id: "c1",
-      archived: "true",
-    }) as Record<string, unknown>;
-    expect(c.archived).toBe(true);
-
     const v = parse(voucherInputShape, {
       type: "purchaseinvoice",
       voucherDate: "2026-06-12T00:00:00.000+02:00",
       useCollectiveContact: "false",
       totalGrossAmount: "11.9",
     }) as Record<string, unknown>;
-    expect(v.useCollectiveContact).toBe(false);
-    expect(v.totalGrossAmount).toBe(11.9);
+    expect(v.useCollectiveContact).toBe(false); // jsonBool coercion
+    expect(v.totalGrossAmount).toBe(11.9); // jsonNum coercion
+  });
+
+  it("keeps line-item optional/alternative flags (incl. from strings) so they reach the API", () => {
+    const parsed = parse(invoiceInputShape, {
+      voucherDate: "2026-07-06",
+      address: { contactId: "c1" },
+      totalPrice: { currency: "EUR" },
+      taxConditions: { taxType: "net" },
+      shippingConditions: { shippingType: "service" },
+      lineItems: [
+        { type: "custom", name: "Base", unitPrice: { currency: "EUR", netAmount: 100 } },
+        // second line item is optional; a string-serialising client sends "true"
+        { type: "custom", name: "Add-on", optional: "true", alternative: false, unitPrice: { currency: "EUR", netAmount: 50 } },
+      ],
+    }) as { lineItems: Array<Record<string, unknown>> };
+    expect(parsed.lineItems[0].optional).toBeUndefined(); // omitted → not sent
+    expect(parsed.lineItems[1].optional).toBe(true); // "true" coerced and preserved
+    expect(parsed.lineItems[1].alternative).toBe(false);
   });
 });

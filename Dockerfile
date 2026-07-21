@@ -6,7 +6,7 @@
 # (For bun or deno, adapt the install/build/prune commands below.)
 
 # Build stage: install deps, compile the app, then prune dev deps.
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
@@ -34,7 +34,7 @@ RUN if [ -f package-lock.json ]; then \
     fi
 
 # Runtime stage: copy built artifacts and prod deps, run as non-root.
-FROM node:24-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 # Default listen port. Cloud Run overrides PORT at runtime; the server reads it.
@@ -45,6 +45,15 @@ USER node
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/package.json ./package.json
+
+# AWS Lambda Web Adapter. It speaks the Lambda Runtime API and forwards each
+# invocation to the server on :8080, so the app needs no Lambda-specific code.
+# Inert everywhere else — only Lambda executes /opt/extensions.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+# /status is the one path guaranteed to answer 200 before traffic arrives.
+ENV AWS_LWA_READINESS_CHECK_PATH=/status
+# MCP replies with SSE streams; buffering them would cap the response at 6 MB.
+ENV AWS_LWA_INVOKE_MODE=response_stream
 
 EXPOSE 8080
 
