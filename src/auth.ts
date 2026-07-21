@@ -11,9 +11,15 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 export function bearerAuthMiddleware(token: string): RequestHandler {
   const expected = Buffer.from(token, "utf8");
   return (req: Request, res: Response, next: NextFunction): void => {
+    // Behind a signing perimeter (e.g. an AWS Lambda Function URL with IAM auth)
+    // the Authorization header is taken by the SigV4 signature, so the token
+    // needs a channel of its own. Checked first; Authorization stays the default.
+    const sideChannel = req.headers["x-mcp-auth"];
     const header = req.headers.authorization;
     const provided =
-      typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : "";
+      typeof sideChannel === "string" && sideChannel.length > 0
+        ? sideChannel
+        : typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : "";
     const providedBuf = Buffer.from(provided, "utf8");
     const ok =
       providedBuf.length === expected.length && timingSafeEqual(providedBuf, expected);
